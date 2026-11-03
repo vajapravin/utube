@@ -1,0 +1,205 @@
+categories:
+  - slug: "ai-machine-learning"
+    name: "AI & Machine Learning"
+    icon: "brain-circuit"
+    yt_category_id: "28"
+    sort_order: 1
+    seed_queries:
+      - "artificial intelligence engineering"
+      - "large language models tutorial"
+      - "machine learning python projects"
+      - "deep learning neural networks"
+
+  - slug: "programming"
+    name: "Programming"
+    icon: "code-xml"
+    yt_category_id: "28"
+    sort_order: 2
+    seed_queries:
+      - "python clean architecture"
+      - "react typescript tutorial"
+      - "rust systems programming"
+      - "backend architecture fastAPI"
+
+  - slug: "science"
+    name: "Science"
+    icon: "flask-conical"
+    yt_category_id: "28"
+    sort_order: 3
+    seed_queries:
+      - "quantum mechanics explained"
+      - "astrophysics discoveries"
+      - "molecular biology insights"
+      - "fusion energy development"
+
+  - slug: "tech-reviews"
+    name: "Tech Reviews"
+    icon: "smartphone"
+    yt_category_id: "28"
+    sort_order: 4
+    seed_queries:
+      - "hardware engineering teardown"
+      - "laptop review benchmarks"
+      - "smartphone camera comparison"
+      - "homelab server build"
+
+  - slug: "gaming"
+    name: "Gaming"
+    icon: "gamepad-2"
+    yt_category_id: "20"
+    sort_order: 5
+    seed_queries:
+      - "game development devlog"
+      - "unreal engine 5 showcase"
+      - "indie game design analysis"
+
+  - slug: "music"
+    name: "Music"
+    icon: "music"
+    yt_category_id: "10"
+    sort_order: 6
+    seed_queries:
+      - "music production synthesizer"
+      - "acoustic guitar live performance"
+      - "lo-fi chill beats production"
+
+  - slug: "cooking"
+    name: "Cooking"
+    icon: "utensils"
+    yt_category_id: "26"
+    sort_order: 7
+    seed_queries:
+      - "culinary knife skills tutorial"
+      - "sourdough bread baking guide"
+      - "quick healthy meal prep"
+
+  - slug: "fitness"
+    name: "Fitness"
+    icon: "dumbbell"
+    yt_category_id: "17"
+    sort_order: 8
+    seed_queries:
+      - "calisthenics progressive workout"
+      - "running posture and endurance"
+      - "strength training biomechanics"
+
+  - slug: "travel"
+    name: "Travel"
+    icon: "compass"
+    yt_category_id: "19"
+    sort_order: 9
+    seed_queries:
+      - "solo backpacking japan"
+      - "scenic walking tour 4k"
+      - "hidden gems europe travel"
+
+  - slug: "finance"
+    name: "Finance"
+    icon: "trending-up"
+    yt_category_id: "25"
+    sort_order: 10
+    seed_queries:
+      - "macroeconomics market analysis"
+      - "index fund investing guide"
+      - "personal budget optimization"
+
+  - slug: "history"
+    name: "History"
+    icon: "landmark"
+    yt_category_id: "27"
+    sort_order: 11
+    seed_queries:
+      - "ancient civilizations documentary"
+      - "industrial revolution history"
+      - "byzantine empire military"
+
+  - slug: "space"
+    name: "Space"
+    icon: "orbit"
+    yt_category_id: "28"
+    sort_order: 12
+    seed_queries:
+      - "james webb telescope imagery"
+      - "spacex rocket engineering"
+      - "mars colonization science"
+
+  - slug: "cricket"
+    name: "Cricket"
+    icon: "target"
+    yt_category_id: "17"
+    sort_order: 13
+    seed_queries:
+      - "test cricket match analysis"
+      - "spin bowling masterclass"
+      - "classic cricket moments"
+
+  - slug: "football"
+    name: "Football"
+    icon: "trophy"
+    yt_category_id: "17"
+    sort_order: 14
+    seed_queries:
+      - "football tactical breakdown"
+      - "champions league highlights"
+      - "goalkeeping masterclass"
+
+  - slug: "comedy"
+    name: "Comedy"
+    icon: "laugh"
+    yt_category_id: "23"
+    sort_order: 15
+    seed_queries:
+      - "standup comedy special highlights"
+      - "sketch comedy sketches"
+      - "satirical news monologue"
+
+  - slug: "movies-trailers"
+    name: "Movies & Trailers"
+    icon: "film"
+    yt_category_id: "1"
+    sort_order: 16
+    seed_queries:
+      - "cinematography breakdown"
+      - "official movie teaser 4k"
+      - "sound design in cinema"
+
+  - slug: "diy-electronics"
+    name: "DIY & Electronics"
+    icon: "cpu"
+    yt_category_id: "26"
+    sort_order: 17
+    seed_queries:
+      - "esp32 iot projects tutorial"
+      - "pcb design kicad guide"
+      - "soldering rework technique"
+      - "3d printing prototyping"
+
+  - slug: "education"
+    name: "Education"
+    icon: "graduation-cap"
+    yt_category_id: "27"
+    sort_order: 18
+    seed_queries:
+      - "calculus visual intuition"
+      - "computer architecture crash course"
+      - "cognitive psychology principles"
+
+  - slug: "news"
+    name: "News"
+    icon: "newspaper"
+    yt_category_id: "25"
+    sort_order: 19
+    seed_queries:
+      - "global technology briefing"
+      - "space exploration news weekly"
+      - "scientific discoveries weekly"
+
+  - slug: "kids"
+    name: "Kids"
+    icon: "baby"
+    yt_category_id: "24"
+    sort_order: 20
+    seed_queries:
+      - "science experiments for kids"
+      - "animated storytelling children"
+      - "origami crafts for kids"

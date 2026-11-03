@@ -1,0 +1,22 @@
+:80 {
+    root * /usr/share/caddy
+    file_server
+
+    # Security Headers (SEC-03)
+    header {
+        Content-Security-Policy "default-src 'self'; frame-src https://www.youtube-nocookie.com; img-src 'self' https://i.ytimg.com https://lh3.googleusercontent.com data:; script-src 'self' https://www.youtube.com https://s.ytimg.com 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self';"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        X-Frame-Options "DENY"
+    }
+
+    # API Reverse Proxy to FastAPI
+    handle /api/* {
+        reverse_proxy api:8000
+    }
+
+    # SPA Fallback for client-side routing
+    try_files {path} /index.html
+}
