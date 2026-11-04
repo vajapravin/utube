@@ -144,6 +144,17 @@ async def execute_curation_pipeline(
         if not c_data:
             continue
         # Upsert Video
+        pub_val = c_data.get("published_at")
+        if isinstance(pub_val, str):
+            try:
+                pub_dt = datetime.fromisoformat(pub_val.replace("Z", "+00:00"))
+            except Exception:
+                pub_dt = datetime.now(timezone.utc)
+        elif isinstance(pub_val, datetime):
+            pub_dt = pub_val
+        else:
+            pub_dt = datetime.now(timezone.utc)
+
         v_stmt = (
             insert(Video)
             .values(
@@ -156,7 +167,7 @@ async def execute_curation_pipeline(
                     item.kind == "short" or c_data["duration_s"] <= settings.SHORTS_MAX_SECONDS
                 ),
                 thumbnails=c_data["thumbnails"],
-                published_at=c_data["published_at"],
+                published_at=pub_dt,
             )
             .on_conflict_do_nothing()
             .returning(Video.id)

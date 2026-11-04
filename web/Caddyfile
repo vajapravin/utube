@@ -1,6 +1,5 @@
 :80 {
     root * /usr/share/caddy
-    file_server
 
     # Security Headers (SEC-03)
     header {
@@ -12,11 +11,26 @@
         X-Frame-Options "DENY"
     }
 
-    # API Reverse Proxy to FastAPI
+    # API & Ops Reverse Proxy to FastAPI
     handle /api/* {
         reverse_proxy api:8000
     }
 
+    handle /healthz {
+        reverse_proxy api:8000
+    }
+
+    handle /readyz {
+        reverse_proxy api:8000
+    }
+
+    handle /metrics {
+        reverse_proxy api:8000
+    }
+
     # SPA Fallback for client-side routing
-    try_files {path} /index.html
+    handle {
+        try_files {path} /index.html
+        file_server
+    }
 }

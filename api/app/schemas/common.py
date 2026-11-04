@@ -9,7 +9,7 @@ T = TypeVar("T")
 
 class BaseSchema(BaseModel):
     model_config = ConfigDict(
-        extra="forbid",
+        extra="ignore",
         from_attributes=True,
     )
 

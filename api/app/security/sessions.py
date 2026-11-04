@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 import redis.asyncio as aioredis
 
 COOKIE_NAME = "__Host-mytube_sid"
+DEV_COOKIE_NAME = "mytube_sid"
 SLIDING_TTL_SECONDS = 30 * 24 * 3600  # 30 days
 ABSOLUTE_TTL_SECONDS = 90 * 24 * 3600  # 90 days
 

@@ -4,8 +4,8 @@ WORKDIR /app
 
 RUN corepack enable pnpm
 
-COPY web/package.json ./
-RUN pnpm install
+COPY web/package.json web/pnpm-lock.yaml* web/pnpm-workspace.yaml* web/.npmrc* ./
+RUN pnpm approve-builds esbuild || (pnpm install; pnpm approve-builds esbuild)
 
 COPY web ./
 RUN pnpm build

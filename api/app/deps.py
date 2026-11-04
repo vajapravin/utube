@@ -11,7 +11,7 @@ from app.config import Settings, get_settings
 from app.models.user import User
 from app.security.csrf import verify_csrf
 from app.security.rate_limit import RateLimiter
-from app.security.sessions import COOKIE_NAME, SessionManager
+from app.security.sessions import COOKIE_NAME, DEV_COOKIE_NAME, SessionManager
 
 # Async Engine and SessionMaker singletons
 _engine = None
@@ -56,7 +56,7 @@ async def get_redis(
         _redis = aioredis.from_url(
             settings.REDIS_URL,
             encoding="utf-8",
-            decode_responses=False,
+            decode_responses=True,
         )
     yield _redis
 
@@ -74,7 +74,7 @@ async def get_current_user_optional(
     session_mgr: SessionManager = Depends(get_session_manager),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[User]:
-    session_id = request.cookies.get(COOKIE_NAME)
+    session_id = request.cookies.get(COOKIE_NAME) or request.cookies.get(DEV_COOKIE_NAME)
     if not session_id:
         return None
     session_data = await session_mgr.get_session(session_id)

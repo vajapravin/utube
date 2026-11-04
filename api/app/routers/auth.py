@@ -1,5 +1,7 @@
 """Authentication router handling Google OIDC BFF flow, PKCE, and session rotation."""
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from redis import asyncio as aioredis
@@ -20,7 +22,7 @@ from app.repositories.user_repo import UserRepository
 from app.security.csrf import generate_csrf_token, set_csrf_cookie
 from app.security.oidc import OIDCService
 from app.security.rate_limit import RateLimiter
-from app.security.sessions import COOKIE_NAME, SessionManager
+from app.security.sessions import COOKIE_NAME, DEV_COOKIE_NAME, SessionManager
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -143,9 +145,10 @@ async def callback(
 
     redirect_resp = RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
-    # Set __Host- session cookie
+    # Set session cookie (__Host- in production, mytube_sid in local dev)
+    c_name = COOKIE_NAME if settings.is_production else DEV_COOKIE_NAME
     redirect_resp.set_cookie(
-        key=COOKIE_NAME,
+        key=c_name,
         value=session_id,
         httponly=True,
         secure=settings.is_production,
@@ -212,3 +215,88 @@ async def logout_all(
         actor_id=current_user.id,
     )
     return {"status": "all_sessions_revoked"}
+
+
+@router.post("/dev-login", summary="Developer / Mock login (Non-production only)")
+async def dev_login(
+    response: Response,
+    email: str = Query("vajapravin23@gmail.com"),
+    settings: Settings = Depends(get_settings),
+    session_mgr: SessionManager = Depends(get_session_manager),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    if settings.is_production:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_email(email)
+    if not user:
+        user, _ = await user_repo.upsert_from_google(
+            sub="dev-mock-sub-12345",
+            email=email,
+            display_name="Pravin Vaja",
+            avatar_url="https://lh3.googleusercontent.com/a/default-user",
+        )
+    session_id = await session_mgr.create_session(
+        user_id=user.id,
+        email=user.email,
+        role=user.role,
+    )
+    csrf_token = generate_csrf_token()
+
+    response.set_cookie(
+        key=DEV_COOKIE_NAME,
+        value=session_id,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        path="/",
+        max_age=30 * 24 * 3600,
+    )
+    set_csrf_cookie(response, csrf_token, secure=False)
+    return {
+        "status": "logged_in",
+        "user_id": str(user.id),
+        "email": user.email,
+        "csrf_token": csrf_token,
+    }
+
+
+@router.get("/dev-login", summary="Browser redirect dev login (Non-production only)")
+async def dev_login_browser(
+    email: str = Query("vajapravin23@gmail.com"),
+    settings: Settings = Depends(get_settings),
+    session_mgr: SessionManager = Depends(get_session_manager),
+    db: AsyncSession = Depends(get_db),
+) -> RedirectResponse:
+    if settings.is_production:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_email(email)
+    if not user:
+        user, _ = await user_repo.upsert_from_google(
+            sub="dev-mock-sub-12345",
+            email=email,
+            display_name="Pravin Vaja",
+            avatar_url="https://lh3.googleusercontent.com/a/default-user",
+        )
+    session_id = await session_mgr.create_session(
+        user_id=user.id,
+        email=user.email,
+        role=user.role,
+    )
+    csrf_token = generate_csrf_token()
+    target_path = "/onboarding" if not user.onboarded_at else "/"
+    resp = RedirectResponse(url=target_path, status_code=status.HTTP_302_FOUND)
+    resp.set_cookie(
+        key=DEV_COOKIE_NAME,
+        value=session_id,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        path="/",
+        max_age=30 * 24 * 3600,
+    )
+    set_csrf_cookie(resp, csrf_token, secure=False)
+    return resp

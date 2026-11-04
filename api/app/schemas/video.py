@@ -4,12 +4,14 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from app.schemas.common import BaseSchema
 
 
 class VideoResponse(BaseSchema):
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
+
     id: uuid.UUID
     youtube_id: str
     title: str
