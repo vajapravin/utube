@@ -1,6 +1,6 @@
 .PHONY: up down restart logs ps test lint fmt migrate seed backup restore openapi clean
 
-COMPOSE = docker compose -f deploy/docker-compose.yml --env-file .env
+COMPOSE = docker compose --env-file .env
 
 up:
 	$(COMPOSE) --profile core up -d --build

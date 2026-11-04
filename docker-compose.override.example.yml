@@ -1,0 +1,22 @@
+# Example Docker Compose override file for local development
+# Copy to docker-compose.override.yml to enable hot-reloading and development mounts.
+#
+# Usage:
+#   cp docker-compose.override.example.yml docker-compose.override.yml
+#   docker compose up -d
+
+services:
+  api:
+    volumes:
+      - ./api/app:/app/app:ro
+      - ./shared/py/mytube_shared:/app/mytube_shared:ro
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      APP_ENV: development
+
+  worker:
+    volumes:
+      - ./worker/app:/app/app:ro
+      - ./shared/py/mytube_shared:/app/mytube_shared:ro
+    environment:
+      APP_ENV: development
