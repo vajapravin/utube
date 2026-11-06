@@ -95,22 +95,29 @@ class FakeLLMProvider(LLMProvider):
         *,
         temperature: float = 0.2,
     ) -> T:
+        import json
+        import re
+
         schema_name = schema.__name__
         if "ChannelPlan" in schema_name:
+            from mytube_shared.guardrails import build_career_focused_queries
+
+            m = re.search(r"<user_prompt>(.*?)</user_prompt>", user, re.DOTALL)
+            prompt_text = m.group(1).strip() if m else ""
+            queries = build_career_focused_queries(prompt_text)
+
+            clean_prompt = re.sub(r"[^\w\s]", " ", prompt_text).strip()
+            words = [w for w in clean_prompt.split() if len(w) > 2]
+
             data = {
-                "queries": [
-                    "esp32 beginner tutorial",
-                    "esp32 iot projects python",
-                    "esp32 microcontrollers guide",
-                    "esp32 sensors robotics",
-                ],
-                "must_include_terms": ["esp32"],
-                "exclude_terms": ["clickbait", "reaction"],
+                "queries": queries,
+                "must_include_terms": [],
+                "exclude_terms": ["clickbait", "reaction", "prank", "funny", "comedy", "meme", "tiktok"],
                 "language": "en",
                 "region": "GB",
                 "min_duration_s": 60,
-                "max_duration_s": 1500,
-                "safe_search": "moderate",
+                "max_duration_s": 3600,
+                "safe_search": "strict",
                 "want_shorts": True,
                 "want_videos": True,
             }
@@ -118,9 +125,32 @@ class FakeLLMProvider(LLMProvider):
 
         # Candidate ranking mock
         if "RankBatchResult" in schema_name or "Rank" in schema_name:
-            # Default ranking response
-            data = {
-                "results": [
+            from mytube_shared.guardrails import evaluate_career_relevance
+
+            m_user = re.search(r"<user_prompt>(.*?)</user_prompt>", user, re.DOTALL)
+            prompt_text = m_user.group(1).strip() if m_user else ""
+
+            results = []
+            m = re.search(r"<candidates>(.*?)</candidates>", user, re.DOTALL)
+            if m:
+                try:
+                    candidates_data = json.loads(m.group(1))
+                    for c in candidates_data:
+                        score = evaluate_career_relevance(prompt_text, c)
+                        kind = "short" if c.get("duration_s", 0) <= 180 else "video"
+                        results.append(
+                            {
+                                "id": c.get("id"),
+                                "relevance_score": score,
+                                "kind": kind,
+                                "reason": f"Career relevance: {score}/100",
+                            }
+                        )
+                except Exception:
+                    pass
+
+            if not results:
+                results = [
                     {
                         "id": "dQw4w9WgXcQ",
                         "relevance_score": 85,
@@ -134,8 +164,7 @@ class FakeLLMProvider(LLMProvider):
                         "reason": "Historic short clip matching interest.",
                     },
                 ]
-            }
-            return schema.model_validate(data)
+            return schema.model_validate({"results": results})
 
         # Fallback to empty schema construct if feasible
         return schema.model_validate({})

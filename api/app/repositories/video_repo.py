@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.category import CategoryVideo
-from app.models.video import HiddenVideo, Like, Video, WatchHistory
+from app.models.video import HiddenVideo, Like, Video, VideoNote, WatchHistory
 
 
 class VideoRepository:
@@ -22,19 +22,29 @@ class VideoRepository:
         return res.scalar_one_or_none()
 
     async def upsert_video(self, video_data: Dict[str, Any]) -> Video:
+        data = dict(video_data)
+        pub = data.get("published_at")
+        if isinstance(pub, str):
+            try:
+                data["published_at"] = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+            except Exception:
+                data["published_at"] = datetime.now(timezone.utc)
+        elif not pub:
+            data["published_at"] = datetime.now(timezone.utc)
+
         stmt = (
             insert(Video)
-            .values(**video_data)
+            .values(**data)
             .on_conflict_do_update(
                 index_elements=["youtube_id"],
                 set_={
-                    "title": video_data.get("title"),
-                    "description": video_data.get("description"),
-                    "duration_s": video_data.get("duration_s"),
-                    "is_short": video_data.get("is_short"),
-                    "thumbnails": video_data.get("thumbnails"),
-                    "view_count": video_data.get("view_count"),
-                    "like_count": video_data.get("like_count"),
+                    "title": data.get("title"),
+                    "description": data.get("description"),
+                    "duration_s": data.get("duration_s"),
+                    "is_short": data.get("is_short"),
+                    "thumbnails": data.get("thumbnails"),
+                    "view_count": data.get("view_count"),
+                    "like_count": data.get("like_count"),
                     "fetched_at": datetime.now(timezone.utc),
                 },
             )
@@ -141,3 +151,64 @@ class VideoRepository:
         )
         res = await self.db.execute(stmt)
         return res.scalars().all()
+
+    async def get_user_history(
+        self, user_id: uuid.UUID, limit: int = 50
+    ) -> Sequence[tuple[Video, WatchHistory]]:
+        stmt = (
+            select(Video, WatchHistory)
+            .join(WatchHistory, Video.id == WatchHistory.video_id)
+            .where(WatchHistory.user_id == user_id)
+            .order_by(desc(WatchHistory.last_watched_at))
+            .limit(limit)
+        )
+        res = await self.db.execute(stmt)
+        return res.all()
+
+    async def clear_user_history(self, user_id: uuid.UUID) -> None:
+        stmt = delete(WatchHistory).where(WatchHistory.user_id == user_id)
+        await self.db.execute(stmt)
+        await self.db.commit()
+
+    async def remove_from_history(self, user_id: uuid.UUID, video_id: uuid.UUID) -> None:
+        stmt = delete(WatchHistory).where(
+            WatchHistory.user_id == user_id, WatchHistory.video_id == video_id
+        )
+        await self.db.execute(stmt)
+        await self.db.commit()
+
+    async def get_video_note(
+        self, user_id: uuid.UUID, video_id: uuid.UUID
+    ) -> Optional[VideoNote]:
+        stmt = select(VideoNote).where(
+            VideoNote.user_id == user_id, VideoNote.video_id == video_id
+        )
+        res = await self.db.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def upsert_video_note(
+        self, user_id: uuid.UUID, video_id: uuid.UUID, content: str
+    ) -> VideoNote:
+        stmt = (
+            insert(VideoNote)
+            .values(
+                id=uuid.uuid4(),
+                user_id=user_id,
+                video_id=video_id,
+                content=content,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+            .on_conflict_do_update(
+                index_elements=["user_id", "video_id"],
+                set_={
+                    "content": content,
+                    "updated_at": datetime.now(timezone.utc),
+                },
+            )
+            .returning(VideoNote)
+        )
+        res = await self.db.execute(stmt)
+        await self.db.commit()
+        return res.scalar_one()
+

@@ -19,6 +19,7 @@ export interface VideoData {
   published_at: string;
   view_count?: number;
   is_liked?: boolean;
+  progress_s?: number;
 }
 
 function formatDuration(seconds: number): string {
@@ -53,7 +54,18 @@ export function VideoCard({ video }: { video: VideoData }) {
         <span className="absolute bottom-2 right-2 rounded bg-black/80 px-1.5 py-0.5 text-xs font-semibold text-white">
           {formatDuration(video.duration_s)}
         </span>
+        {video.progress_s !== undefined && video.duration_s > 0 && video.progress_s > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-700/70">
+            <div
+              className="h-full bg-indigo-500"
+              style={{
+                width: `${Math.min(100, Math.round((video.progress_s / video.duration_s) * 100))}%`,
+              }}
+            />
+          </div>
+        )}
       </Link>
+
 
       <div className="flex gap-2.5 px-0.5">
         <div className="flex flex-1 flex-col">

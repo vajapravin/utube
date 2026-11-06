@@ -56,6 +56,34 @@ async def login(
     return RedirectResponse(url=params["authorization_url"], status_code=status.HTTP_302_FOUND)
 
 
+@router.get("/connect-youtube", summary="Connect YouTube account with readonly scope")
+async def connect_youtube(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+    redis_client: aioredis.Redis = Depends(get_redis),
+    rate_limiter: RateLimiter = Depends(get_rate_limiter),
+    current_user: User = Depends(get_current_user),
+) -> RedirectResponse:
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    await rate_limiter.check_rate_limit(
+        f"auth_connect_yt:{client_ip}", max_requests=20, window_seconds=60
+    )
+
+    oidc = OIDCService(redis_client)
+    redirect_uri = f"{settings.PUBLIC_BASE_URL}/api/v1/auth/callback"
+    auth_endpoint = "https://accounts.google.com/o/oauth2/v2/auth"
+    if settings.APP_ENV == "test":
+        auth_endpoint = f"http://localhost:{settings.MOCK_OIDC_PORT}/default/authorize"
+
+    params = await oidc.create_authorization_params(
+        client_id=settings.GOOGLE_CLIENT_ID or "mock-client-id",
+        redirect_uri=redirect_uri,
+        auth_endpoint=auth_endpoint,
+        scope="openid email profile https://www.googleapis.com/auth/youtube.readonly",
+    )
+    return RedirectResponse(url=params["authorization_url"], status_code=status.HTTP_302_FOUND)
+
+
 @router.get("/callback", summary="Google OIDC callback endpoint")
 async def callback(
     request: Request,
@@ -128,6 +156,15 @@ async def callback(
         display_name=user_info.name,
         avatar_url=user_info.picture,
     )
+
+    # Store OAuth token for YouTube API sync if present
+    if user_info.access_token:
+        import json
+        token_payload = {
+            "access_token": user_info.access_token,
+            "refresh_token": user_info.refresh_token,
+        }
+        await redis_client.set(f"google_oauth:{user.id}", json.dumps(token_payload), ex=30 * 86400)
 
     # 3. Create Redis session with 256-bit ID (FR-04)
     session_id = await session_mgr.create_session(

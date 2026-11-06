@@ -34,7 +34,15 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
       window.location.href = '/login';
     }
     const errData = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(errData.detail || `Request failed with status ${response.status}`);
+    let errorMsg = `Request failed with status ${response.status}`;
+    if (typeof errData.detail === 'string') {
+      errorMsg = errData.detail;
+    } else if (Array.isArray(errData.detail)) {
+      errorMsg = errData.detail.map((e: any) => e.msg || JSON.stringify(e)).join(', ');
+    } else if (errData.detail && typeof errData.detail === 'object') {
+      errorMsg = JSON.stringify(errData.detail);
+    }
+    throw new Error(errorMsg);
   }
 
   return response.json();

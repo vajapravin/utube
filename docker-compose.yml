@@ -11,13 +11,11 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mytube}:${POSTGRES_PASSWORD:-mytube_secure_dev_password_change_in_prod}@postgres:5432/${POSTGRES_DB:-mytube}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mytube}:${POSTGRES_PASSWORD:-mytube_secure_dev_password_change_in_prod}@postgres_db:5432/${POSTGRES_DB:-mytube}
     command: ["sh", "-c", "alembic upgrade head && python -m app.seed.categories"]
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - mytube_net
+      - postgresql_app-net
 
   api:
     build:
@@ -29,15 +27,13 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mytube}:${POSTGRES_PASSWORD:-mytube_secure_dev_password_change_in_prod}@postgres:5432/${POSTGRES_DB:-mytube}
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mytube}:${POSTGRES_PASSWORD:-mytube_secure_dev_password_change_in_prod}@postgres_db:5432/${POSTGRES_DB:-mytube}
+      REDIS_URL: redis://redis:6380/0
     ports:
       - "${API_PORT:-8005}:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
       interval: 10s
@@ -47,6 +43,8 @@ services:
     restart: unless-stopped
     networks:
       - mytube_net
+      - postgresql_app-net
+      - redis_app-net
 
   worker:
     build:
@@ -58,16 +56,16 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mytube}:${POSTGRES_PASSWORD:-mytube_secure_dev_password_change_in_prod}@postgres:5432/${POSTGRES_DB:-mytube}
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mytube}:${POSTGRES_PASSWORD:-mytube_secure_dev_password_change_in_prod}@postgres_db:5432/${POSTGRES_DB:-mytube}
+      REDIS_URL: redis://redis:6380/0
     depends_on:
       migrate:
         condition: service_completed_successfully
-      redis:
-        condition: service_healthy
     restart: unless-stopped
     networks:
       - mytube_net
+      - postgresql_app-net
+      - redis_app-net
 
   web:
     build:
@@ -119,8 +117,12 @@ services:
 networks:
   mytube_net:
     driver: bridge
+  postgresql_app-net:
+    name: postgresql_app-net
+    external: true
+  redis_app-net:
+    name: redis_app-net
+    external: true
 
 volumes:
-  postgres_data:
-  redis_data:
   ollama_data:

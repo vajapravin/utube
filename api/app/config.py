@@ -28,9 +28,9 @@ class Settings(BaseSettings):
 
     # Database & Redis
     DATABASE_URL: str = (
-        "postgresql+asyncpg://mytube:mytube_secure_dev_password_change_in_prod@postgres:5432/mytube"
+        "postgresql+asyncpg://mytube:mytube_secure_dev_password_change_in_prod@postgres_db:5432/mytube"
     )
-    REDIS_URL: str = "redis://redis:6379/0"
+    REDIS_URL: str = "redis://redis:6380/0"
 
     # Authentication & OIDC
     GOOGLE_CLIENT_ID: str = ""

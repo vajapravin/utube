@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Sparkles, Play } from 'lucide-react';
 import { apiFetch } from '../../shared/api';
 
@@ -12,6 +13,7 @@ export function CreateChannelPage() {
   const [previewing, setPreviewing] = useState(false);
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const handlePreview = async () => {
     if (prompt.length < 20) return;
@@ -43,6 +45,7 @@ export function CreateChannelPage() {
           visibility,
         }),
       });
+      await queryClient.invalidateQueries({ queryKey: ['channels', 'mine'] });
       navigate(`/ch/${ch.handle}/videos`);
     } catch (err) {
       alert('Failed to create channel: ' + err);
@@ -68,6 +71,24 @@ export function CreateChannelPage() {
             placeholder="e.g. ESP32 Robotics & IoT Tutorials"
             className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm dark:border-gray-700 dark:bg-gray-900"
           />
+          {name.length > 0 && name.length < 3 && (
+            <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+              Channel name must be at least 3 characters.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Description <span className="font-normal text-gray-400">(Optional)</span>
+          </label>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Brief summary of what this channel focuses on"
+            className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm dark:border-gray-700 dark:bg-gray-900"
+          />
         </div>
 
         <div>
@@ -81,6 +102,11 @@ export function CreateChannelPage() {
             className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm dark:border-gray-700 dark:bg-gray-900"
           />
           <span className="text-xs text-gray-400">{prompt.length} / 2000 chars (min 20)</span>
+          {prompt.length > 0 && prompt.length < 20 && (
+            <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+              Prompt must be at least 20 characters (currently {prompt.length}).
+            </p>
+          )}
         </div>
 
         <div>

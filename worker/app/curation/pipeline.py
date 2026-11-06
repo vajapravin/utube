@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -82,6 +83,12 @@ async def execute_curation_pipeline(
             details = await video_source.get_video_details(vids)
             for d in details:
                 if d["id"] not in excluded_ids:
+                    dur_str = d.get("contentDetails", {}).get("duration", "PT0S")
+                    m = re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", dur_str)
+                    h = int(m.group(1) or 0) if m else 0
+                    mins = int(m.group(2) or 0) if m else 0
+                    s = int(m.group(3) or 0) if m else 0
+                    duration_s = h * 3600 + mins * 60 + s
                     raw_candidates.append(
                         {
                             "id": d["id"],
@@ -89,7 +96,7 @@ async def execute_curation_pipeline(
                             "title": d.get("snippet", {}).get("title", ""),
                             "description": d.get("snippet", {}).get("description", "")[:300],
                             "source_channel_title": d.get("snippet", {}).get("channelTitle", ""),
-                            "duration_s": 180,  # Parsed duration
+                            "duration_s": duration_s,
                             "published_at": d.get("snippet", {}).get(
                                 "publishedAt", "2026-01-01T00:00:00Z"
                             ),
@@ -119,7 +126,15 @@ async def execute_curation_pipeline(
             "Score each candidate from 0 to 100 on how well it fits the prompt. Drop any candidate not in the batch."
         )
         candidates_str = json.dumps(
-            [{"id": c["id"], "title": c["title"], "description": c["description"]} for c in batch]
+            [
+                {
+                    "id": c["id"],
+                    "title": c["title"],
+                    "description": c["description"],
+                    "duration_s": c.get("duration_s", 0),
+                }
+                for c in batch
+            ]
         )
         user_rank = f"<user_prompt>{channel.prompt}</user_prompt>\n<candidates>{candidates_str}</candidates>"
 
@@ -155,17 +170,17 @@ async def execute_curation_pipeline(
         else:
             pub_dt = datetime.now(timezone.utc)
 
+        is_short_vid = c_data["duration_s"] <= settings.SHORTS_MAX_SECONDS
         v_stmt = (
             insert(Video)
             .values(
+                id=uuid.uuid4(),
                 youtube_id=item.id,
                 title=c_data["title"],
                 description=c_data["description"],
                 source_channel_title=c_data["source_channel_title"],
                 duration_s=c_data["duration_s"],
-                is_short=(
-                    item.kind == "short" or c_data["duration_s"] <= settings.SHORTS_MAX_SECONDS
-                ),
+                is_short=is_short_vid,
                 thumbnails=c_data["thumbnails"],
                 published_at=pub_dt,
             )
@@ -187,7 +202,7 @@ async def execute_curation_pipeline(
             .values(
                 channel_id=channel.id,
                 video_id=v_id,
-                kind=item.kind,
+                kind="short" if is_short_vid else "video",
                 score=item.relevance_score,
                 reason=item.reason[:255] if item.reason else None,
                 source="llm",

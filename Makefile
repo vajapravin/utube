@@ -54,7 +54,7 @@ openapi:
 backup:
 	@mkdir -p backups
 	@FILE=backups/mytube_backup_$$(date +%Y%m%d_%H%M%S).sql.gz; \
-	docker exec -t mytube-postgres pg_dump -U mytube -d mytube | gzip > $$FILE; \
+	docker exec -t postgres_db pg_dump -U $${POSTGRES_USER:-admin} -d $${POSTGRES_DB:-mytube} | gzip > $$FILE; \
 	echo "Backup written to $$FILE"
 
 clean:

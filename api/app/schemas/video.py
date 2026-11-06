@@ -31,4 +31,5 @@ class VideoResponse(BaseSchema):
 
 class ProgressUpdate(BaseSchema):
     progress_s: int = Field(ge=0)
-    duration_s: int = Field(ge=0)
+    duration_s: int = Field(default=0, ge=0)
+

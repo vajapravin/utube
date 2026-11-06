@@ -5,11 +5,13 @@ import uuid
 from typing import List, Optional, Sequence
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
 from app.deps import (
     check_csrf,
+    get_arq_pool,
     get_current_user,
     get_current_user_optional,
     get_db,
@@ -66,10 +68,36 @@ async def create_channel(
 
     channel_repo = ChannelRepository(db)
 
-    # Generate or validate handle
-    raw_handle = payload.handle or f"@{_slugify(payload.name)}"
+    # Prevent duplicate channel name for the same owner
+    res_name = await db.execute(
+        select(Channel.id).where(
+            Channel.owner_id == current_user.id,
+            Channel.name == payload.name,
+        )
+    )
+    if res_name.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"You already have a channel named '{payload.name}'. Please choose a different name.",
+        )
+
+    # Generate sanitized handle and auto-resolve collisions
+    base_slug = _slugify(payload.name)
+    if not base_slug:
+        base_slug = f"channel-{uuid.uuid4().hex[:6]}"
+    raw_handle = payload.handle or f"@{base_slug}"
     if not raw_handle.startswith("@"):
         raw_handle = f"@{raw_handle}"
+
+    candidate_handle = raw_handle
+    counter = 1
+    while True:
+        res_h = await db.execute(select(Channel.id).where(Channel.handle == candidate_handle))
+        if res_h.scalar_one_or_none() is None:
+            break
+        counter += 1
+        candidate_handle = f"{raw_handle}-{counter}"
+    raw_handle = candidate_handle
 
     try:
         channel = await channel_repo.create_channel(
@@ -88,9 +116,14 @@ async def create_channel(
             detail=f"Failed to create channel: {exc}",
         )
 
-    # In production, enqueue job via arq; for synchronous fallback update status to ready
-    channel.status = "ready"
-    await db.commit()
+    # Enqueue AI curation pipeline in background via arq
+    try:
+        arq_pool = await get_arq_pool(settings)
+        await arq_pool.enqueue_job("curate_channel_job", str(channel.id))
+    except Exception:
+        # Fallback to ready if background worker queue is unavailable
+        channel.status = "ready"
+        await db.commit()
 
     return ChannelResponse.model_validate(
         {**channel.__dict__, "is_owner": True, "video_count": 0, "short_count": 0}
@@ -296,6 +329,7 @@ async def refresh_channel(
     id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     rate_limiter: RateLimiter = Depends(get_rate_limiter),
+    settings: Settings = Depends(get_settings),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     # Rate limit: 1 request per 15 min per channel (FR-34)
@@ -308,7 +342,11 @@ async def refresh_channel(
 
     channel.status = "curating"
     await db.commit()
-    return {"status": "enqueued", "job_id": str(uuid.uuid4())}
+
+    arq_pool = await get_arq_pool(settings)
+    job = await arq_pool.enqueue_job("curate_channel_job", str(id))
+    job_id = job.job_id if job else str(uuid.uuid4())
+    return {"status": "enqueued", "job_id": job_id}
 
 
 @router.get("/{id}/status", summary="Poll channel curation status")

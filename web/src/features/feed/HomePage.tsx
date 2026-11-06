@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ShieldCheck, Sparkles } from 'lucide-react';
 import { VideoCard, VideoData } from '../../entities/VideoCard';
 import { apiFetch } from '../../shared/api';
 
@@ -58,6 +59,27 @@ export function HomePage() {
 
   return (
     <div className="flex flex-col gap-8 pb-12">
+      {/* Career Focus Mode Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-indigo-900/40 border border-indigo-500/30 p-4 text-xs">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shrink-0">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900 dark:text-white text-sm">Career Focus Active</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              Curated for software engineering, architecture, and career mastery. Distractions, memes, and comedy are blocked.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/library?tab=sync"
+          className="rounded-full bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 shrink-0"
+        >
+          Sync YouTube Data
+        </Link>
+      </div>
+
       {/* Continue Watching (FR-53) */}
       {data.continue_watching.length > 0 && (
         <section>

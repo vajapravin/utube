@@ -28,6 +28,11 @@ def prefilter_candidates(
         desc = c.get("description", "").lower()
         full_text = f"{title} {desc}"
 
+        # 0. Anti-entertainment & Clickbait guardrail filter
+        from mytube_shared.guardrails import is_entertainment_or_clickbait
+        if is_entertainment_or_clickbait(c.get("title", ""), c.get("description", "")):
+            continue
+
         # 1. Exclude terms check
         if any(term in full_text for term in lower_exclusions):
             continue

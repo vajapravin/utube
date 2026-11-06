@@ -10,6 +10,7 @@ import { WatchPage } from './features/watch/WatchPage';
 import { ChannelPage } from './features/channels/ChannelPage';
 import { CreateChannelPage } from './features/channels/CreateChannelPage';
 import { PlaylistsPage } from './features/playlists/PlaylistsPage';
+import { SearchPage } from './features/search/SearchPage';
 import { ThemeProvider } from './shared/theme';
 import './index.css';
 
@@ -28,6 +29,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="watch/:id" element={<WatchPage />} />
               <Route path="shorts" element={<HomePage />} />
               <Route path="explore" element={<HomePage />} />
+              <Route path="search" element={<SearchPage />} />
               <Route path="library" element={<PlaylistsPage />} />
               <Route path="channels/new" element={<CreateChannelPage />} />
               <Route path="ch/:handle/*" element={<ChannelPage />} />

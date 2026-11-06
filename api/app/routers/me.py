@@ -128,3 +128,57 @@ async def get_my_likes(
         for v in videos
     ]
     return CursorPage(items=items, next_cursor=None, has_more=False)
+
+
+@router.get("/history", summary="List user's watch history")
+async def get_my_history(
+    limit: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> List[dict]:
+    video_repo = VideoRepository(db)
+    history_entries = await video_repo.get_user_history(current_user.id, limit=limit)
+    results = []
+    for video, hist in history_entries:
+        results.append({
+            "id": str(video.id),
+            "youtube_id": video.youtube_id,
+            "title": video.title,
+            "description": video.description,
+            "source_channel_title": video.source_channel_title,
+            "duration_s": video.duration_s,
+            "is_short": video.is_short,
+            "thumbnails": video.thumbnails,
+            "published_at": video.published_at.isoformat() if video.published_at else None,
+            "progress_s": hist.progress_s,
+            "last_watched_at": hist.last_watched_at.isoformat() if hist.last_watched_at else None,
+        })
+    return results
+
+
+@router.delete("/history", summary="Clear all watch history", dependencies=[Depends(check_csrf)])
+async def clear_my_history(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    video_repo = VideoRepository(db)
+    await video_repo.clear_user_history(current_user.id)
+    return {"status": "history_cleared"}
+
+
+@router.delete(
+    "/history/{youtube_id}",
+    summary="Remove single item from watch history",
+    dependencies=[Depends(check_csrf)],
+)
+async def remove_single_history(
+    youtube_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    video_repo = VideoRepository(db)
+    video = await video_repo.get_by_youtube_id(youtube_id)
+    if video:
+        await video_repo.remove_from_history(current_user.id, video.id)
+    return {"status": "item_removed"}
+

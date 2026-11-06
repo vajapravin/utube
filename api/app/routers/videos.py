@@ -15,6 +15,11 @@ from app.repositories.playlist_repo import PlaylistRepository
 from app.repositories.video_repo import VideoRepository
 from app.schemas.playlist import PlaylistResponse
 from app.schemas.video import ProgressUpdate, VideoResponse
+from pydantic import BaseModel
+
+
+class VideoNoteUpdate(BaseModel):
+    content: str
 
 router = APIRouter(prefix="/videos", tags=["Videos"])
 
@@ -204,3 +209,64 @@ async def get_saved_in(
 
     playlists = await playlist_repo.get_user_playlists_containing_video(current_user.id, video.id)
     return [PlaylistResponse.model_validate(p) for p in playlists]
+
+
+@router.get("/{youtube_id}/comments", summary="Get top comments for video")
+async def get_comments(
+    youtube_id: str,
+    settings: Settings = Depends(get_settings),
+) -> List[dict]:
+    source = await _get_video_source(settings)
+    return await source.get_comments(youtube_id)
+
+
+@router.get("/{youtube_id}/notes", summary="Get user's personal study notes for video")
+async def get_video_notes(
+    youtube_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    video_repo = VideoRepository(db)
+    video = await video_repo.get_by_youtube_id(youtube_id)
+    if not video:
+        return {"content": "", "updated_at": None}
+    note = await video_repo.get_video_note(current_user.id, video.id)
+    if not note:
+        return {"content": "", "updated_at": None}
+    return {"content": note.content, "updated_at": note.updated_at.isoformat()}
+
+
+@router.put(
+    "/{youtube_id}/notes",
+    summary="Save user's personal study notes for video",
+    dependencies=[Depends(check_csrf)],
+)
+async def save_video_notes(
+    youtube_id: str,
+    payload: VideoNoteUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    video_repo = VideoRepository(db)
+    video = await video_repo.get_by_youtube_id(youtube_id)
+    if not video:
+        source = await _get_video_source(settings)
+        details = await source.get_video_details([youtube_id])
+        item = details[0] if details else {}
+        snippet = item.get("snippet", {})
+        video = await video_repo.upsert_video(
+            {
+                "youtube_id": youtube_id,
+                "title": snippet.get("title", "Video"),
+                "description": snippet.get("description", ""),
+                "duration_s": 180,
+                "is_short": False,
+                "aspect": "landscape",
+                "thumbnails": snippet.get("thumbnails", {}),
+                "published_at": snippet.get("publishedAt", "2026-01-01T00:00:00Z"),
+            }
+        )
+    note = await video_repo.upsert_video_note(current_user.id, video.id, payload.content)
+    return {"content": note.content, "updated_at": note.updated_at.isoformat()}
+

@@ -64,6 +64,89 @@ class YouTubeDataAPISource(VideoSource):
                     results.extend(data.get("items", []))
         return results
 
+    async def get_liked_videos(
+        self, access_token: str, max_results: int = 50
+    ) -> List[Dict[str, Any]]:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        params = {
+            "part": "snippet,contentDetails,statistics",
+            "myRating": "like",
+            "maxResults": min(max_results, 50),
+        }
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(f"{self.base_url}/videos", headers=headers, params=params)
+            if resp.status_code != 200:
+                return []
+            data = resp.json()
+            return data.get("items", [])
+
+    async def get_my_playlists(
+        self, access_token: str, max_results: int = 50
+    ) -> List[Dict[str, Any]]:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        params = {
+            "part": "snippet,contentDetails",
+            "mine": "true",
+            "maxResults": min(max_results, 50),
+        }
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(f"{self.base_url}/playlists", headers=headers, params=params)
+            if resp.status_code != 200:
+                return []
+            data = resp.json()
+            return data.get("items", [])
+
+    async def get_playlist_items(
+        self, playlist_id: str, access_token: Optional[str] = None, max_results: int = 50
+    ) -> List[Dict[str, Any]]:
+        headers = {"Authorization": f"Bearer {access_token}"} if access_token else {}
+        params: Dict[str, Any] = {
+            "part": "snippet,contentDetails",
+            "playlistId": playlist_id,
+            "maxResults": min(max_results, 50),
+        }
+        if self.api_key:
+            params["key"] = self.api_key
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(f"{self.base_url}/playlistItems", headers=headers, params=params)
+            if resp.status_code != 200:
+                return []
+            data = resp.json()
+            return data.get("items", [])
+
+    async def get_comments(
+        self, video_id: str, max_results: int = 20
+    ) -> List[Dict[str, Any]]:
+        if not self.api_key:
+            return []
+        params = {
+            "key": self.api_key,
+            "part": "snippet",
+            "videoId": video_id,
+            "maxResults": min(max_results, 50),
+            "order": "relevance",
+            "textFormat": "plainText",
+        }
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"{self.base_url}/commentThreads", params=params)
+            if resp.status_code != 200:
+                return []
+            data = resp.json()
+            items = data.get("items", [])
+            parsed = []
+            for item in items:
+                top = item.get("snippet", {}).get("topLevelComment", {}).get("snippet", {})
+                if top:
+                    parsed.append({
+                        "id": item.get("id"),
+                        "author": top.get("authorDisplayName", "Anonymous"),
+                        "author_avatar": top.get("authorProfileImageUrl"),
+                        "text": top.get("textDisplay", ""),
+                        "like_count": top.get("likeCount", 0),
+                        "published_at": top.get("publishedAt"),
+                    })
+            return parsed
+
 
 class FakeVideoSource(VideoSource):
     """Deterministic video provider for development, tests, and mock offline mode."""
@@ -159,3 +242,52 @@ class FakeVideoSource(VideoSource):
             for item in self.fixtures
             if item["youtube_id"] in id_set
         ]
+
+    async def get_liked_videos(
+        self, access_token: str, max_results: int = 50
+    ) -> List[Dict[str, Any]]:
+        return await self.get_video_details([item["youtube_id"] for item in self.fixtures[:max_results]])
+
+    async def get_my_playlists(
+        self, access_token: str, max_results: int = 50
+    ) -> List[Dict[str, Any]]:
+        return [
+            {
+                "id": "PL_demo_playlist_1",
+                "snippet": {
+                    "title": "Software Engineering Tutorials",
+                    "description": "Curated coding and architecture guides",
+                },
+                "contentDetails": {"itemCount": 2},
+            }
+        ]
+
+    async def get_playlist_items(
+        self, playlist_id: str, access_token: Optional[str] = None, max_results: int = 50
+    ) -> List[Dict[str, Any]]:
+        return [
+            {
+                "snippet": {
+                    "resourceId": {"videoId": item["youtube_id"]},
+                    "title": item["title"],
+                    "description": item["description"],
+                    "thumbnails": item["thumbnails"],
+                }
+            }
+            for item in self.fixtures[:max_results]
+        ]
+
+    async def get_comments(
+        self, video_id: str, max_results: int = 20
+    ) -> List[Dict[str, Any]]:
+        return [
+            {
+                "id": "c1",
+                "author": "Tech Explorer",
+                "author_avatar": None,
+                "text": "Great breakdown and crystal clear explanation of the architecture!",
+                "like_count": 42,
+                "published_at": "2026-01-15T12:00:00Z",
+            }
+        ]
+

@@ -12,7 +12,7 @@ from app.models.channel import (
 )
 from app.models.playlist import Playlist, PlaylistItem
 from app.models.user import User
-from app.models.video import HiddenVideo, Like, Video, WatchHistory
+from app.models.video import HiddenVideo, Like, Video, VideoNote, WatchHistory
 
 __all__ = [
     "Base",
@@ -24,6 +24,7 @@ __all__ = [
     "Like",
     "HiddenVideo",
     "WatchHistory",
+    "VideoNote",
     "Channel",
     "ChannelCategory",
     "ChannelVideo",

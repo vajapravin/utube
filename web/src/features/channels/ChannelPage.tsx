@@ -44,12 +44,36 @@ export function ChannelPage() {
       });
   }, [handle, activeTab]);
 
+  // Poll channel curation status if curating
+  useEffect(() => {
+    if (!channel || channel.status !== 'curating') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const st: any = await apiFetch(`/channels/${channel.id}/status`);
+        if (st.status === 'ready') {
+          setChannel((prev: any) => ({ ...prev, status: 'ready' }));
+          const endpoint =
+            activeTab === 'liked'
+              ? `/channels/${channel.id}/liked`
+              : `/channels/${channel.id}/videos${activeTab === 'shorts' ? '?kind=short' : '?kind=video'}`;
+          const res: any = await apiFetch(endpoint);
+          setVideos(res.items || []);
+        }
+      } catch (err) {
+        console.error('Status poll error:', err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [channel?.id, channel?.status, activeTab]);
+
   const handleRefresh = async () => {
     if (!channel) return;
     setRefreshing(true);
     try {
       await apiFetch(`/channels/${channel.id}/refresh`, { method: 'POST' });
-      alert('Curation refresh enqueued!');
+      setChannel((prev: any) => ({ ...prev, status: 'curating' }));
     } catch (err) {
       alert('Refresh failed: ' + err);
     } finally {
@@ -143,10 +167,27 @@ export function ChannelPage() {
         </div>
       </div>
 
+      {/* Curation in progress banner */}
+      {channel.status === 'curating' && (
+        <div className="flex items-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/80 p-4 dark:border-indigo-800 dark:bg-indigo-950/30">
+          <RefreshCw className="h-5 w-5 animate-spin text-indigo-600 dark:text-indigo-400" />
+          <div>
+            <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+              AI curation in progress...
+            </p>
+            <p className="text-xs text-indigo-700 dark:text-indigo-400">
+              Discovering and scoring matching videos for your channel. This page will update automatically.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Video Grid for Active Tab */}
       {videos.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 p-12 text-center text-sm text-gray-500 dark:border-gray-800">
-          {activeTab === 'liked'
+          {channel.status === 'curating'
+            ? 'Curating initial videos for your channel. Please wait a few moments...'
+            : activeTab === 'liked'
             ? 'Videos you like in this channel will show up here.'
             : 'No videos found in this tab. Try refreshing curation.'}
         </div>

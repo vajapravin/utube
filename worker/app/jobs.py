@@ -1,5 +1,6 @@
 """arq background job handlers and cron triggers."""
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import get_worker_settings
 from app.curation.pipeline import execute_curation_pipeline
+from app.models.category import CategoryVideo
 from app.providers.llm import FakeLLMProvider, GeminiProvider
 from app.providers.video_source import FakeVideoSource, YouTubeDataAPISource
 
@@ -41,6 +43,16 @@ async def startup(ctx: Dict[Any, Any]) -> None:
         ctx["llm_provider"] = FakeLLMProvider()
 
     logger.info("worker_started")
+
+    # Auto-seed category videos on cold-start if cache is empty
+    try:
+        async with ctx["session_factory"]() as session:
+            res = await session.execute(select(CategoryVideo).limit(1))
+            if res.scalar_one_or_none() is None:
+                logger.info("cold_start_refresh_categories_triggering")
+                asyncio.create_task(refresh_categories_job(ctx))
+    except Exception as exc:
+        logger.warning("cold_start_category_refresh_failed", error=str(exc))
 
 
 async def shutdown(ctx: Dict[Any, Any]) -> None:

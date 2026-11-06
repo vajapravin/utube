@@ -3,6 +3,7 @@
 import uuid
 from typing import AsyncGenerator, Optional
 
+from arq.connections import ArqRedis, RedisSettings, create_pool
 from fastapi import Depends, HTTPException, Request, status
 from redis import asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -13,10 +14,11 @@ from app.security.csrf import verify_csrf
 from app.security.rate_limit import RateLimiter
 from app.security.sessions import COOKIE_NAME, DEV_COOKIE_NAME, SessionManager
 
-# Async Engine and SessionMaker singletons
+# Async Engine, SessionMaker, and Arq Redis singletons
 _engine = None
 _sessionmaker = None
 _redis = None
+_arq_pool = None
 
 
 def get_engine(settings: Settings = Depends(get_settings)):
@@ -67,6 +69,13 @@ async def get_rate_limiter(redis: aioredis.Redis = Depends(get_redis)) -> RateLi
 
 async def get_session_manager(redis: aioredis.Redis = Depends(get_redis)) -> SessionManager:
     return SessionManager(redis)
+
+
+async def get_arq_pool(settings: Settings = Depends(get_settings)) -> ArqRedis:
+    global _arq_pool
+    if _arq_pool is None:
+        _arq_pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+    return _arq_pool
 
 
 async def get_current_user_optional(

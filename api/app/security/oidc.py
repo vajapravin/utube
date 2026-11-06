@@ -17,6 +17,8 @@ class OIDCUserInfo(BaseModel):
     name: str
     picture: Optional[str] = None
     email_verified: bool = False
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
 
 
 class OIDCService:
@@ -35,6 +37,7 @@ class OIDCService:
         client_id: str,
         redirect_uri: str,
         auth_endpoint: str,
+        scope: str = "openid email profile https://www.googleapis.com/auth/youtube.readonly",
     ) -> Dict[str, str]:
         state = secrets.token_urlsafe(32)
         nonce = secrets.token_urlsafe(32)
@@ -50,11 +53,16 @@ class OIDCService:
         }
         await self.redis.set(f"oidc_state:{state}", json.dumps(state_data), ex=600)
 
+        import urllib.parse
+        encoded_scope = urllib.parse.quote(scope)
+
         url = (
             f"{auth_endpoint}"
             f"?response_type=code"
             f"&client_id={client_id}"
-            f"&scope=openid%20email%20profile"
+            f"&scope={encoded_scope}"
+            f"&access_type=offline"
+            f"&prompt=consent"
             f"&redirect_uri={redirect_uri}"
             f"&state={state}"
             f"&nonce={nonce}"
@@ -131,6 +139,8 @@ class OIDCService:
                         name=name,
                         picture=picture,
                         email_verified=email_verified,
+                        access_token=access_token,
+                        refresh_token=refresh_token,
                     )
 
             # Fallback to UserInfo endpoint if access_token available
@@ -147,6 +157,8 @@ class OIDCService:
                         name=info.get("name", info["email"]),
                         picture=info.get("picture"),
                         email_verified=info.get("email_verified", False),
+                        access_token=access_token,
+                        refresh_token=refresh_token,
                     )
 
         raise ValueError("Could not extract user identity from OIDC provider")

@@ -71,15 +71,39 @@ async def get_home_feed(
         for v in continue_vids
     ]
 
-    # 4. Shorts shelf (FR-23)
-    shorts_list = [s.videos[0] for s in shelves if s.videos and any(v.is_short for v in s.videos)]
-
-    # 5. For you mixed grid (FR-21)
-    for_you = []
+    # 4. Shorts shelf (FR-23): collect up to 12 actual shorts from interest shelves
+    shorts_list = []
+    seen_short_ids = set()
     for s in shelves:
         for v in s.videos:
-            if not v.is_short and len(for_you) < 12:
-                for_you.append(v)
+            if v.is_short and v.id not in seen_short_ids:
+                shorts_list.append(v)
+                seen_short_ids.add(v.id)
+                if len(shorts_list) >= 12:
+                    break
+        if len(shorts_list) >= 12:
+            break
+
+    # 5. For you mixed grid (FR-21): interleave categories, deduplicate, exclude shorts & liked/saved
+    for_you = []
+    seen_for_you_ids = set()
+    max_shelf_len = max((len(s.videos) for s in shelves), default=0)
+    for idx in range(max_shelf_len):
+        for s in shelves:
+            if idx < len(s.videos):
+                v = s.videos[idx]
+                if (
+                    not v.is_short
+                    and v.id not in seen_for_you_ids
+                    and not v.is_liked
+                    and not v.is_saved
+                ):
+                    for_you.append(v)
+                    seen_for_you_ids.add(v.id)
+                    if len(for_you) >= 12:
+                        break
+        if len(for_you) >= 12:
+            break
 
     return HomeFeedResponse(
         for_you=for_you,

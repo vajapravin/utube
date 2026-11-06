@@ -82,3 +82,20 @@ class WatchHistory(Base):
     last_watched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
+
+
+class VideoNote(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "video_notes"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    video_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("videos.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    content: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+    __table_args__ = (
+        Index("uq_video_notes_user_video", "user_id", "video_id", unique=True),
+    )
+

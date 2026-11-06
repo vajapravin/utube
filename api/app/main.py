@@ -6,10 +6,22 @@ from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from app.routers import auth, categories, channels, feed, me, ops, playlists, search, videos
+from app.routers import (
+    auth,
+    categories,
+    channels,
+    feed,
+    me,
+    ops,
+    playlists,
+    search,
+    videos,
+    youtube_sync,
+)
 from app.schemas.common import ProblemDetails
 
 # Structured logging configuration
@@ -78,6 +90,29 @@ def create_app() -> FastAPI:
             headers=getattr(exc, "headers", None),
         )
 
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        messages = []
+        for err in exc.errors():
+            loc = ".".join(str(l) for l in err.get("loc", []) if l != "body")
+            msg = err.get("msg", "Validation error")
+            messages.append(f"{loc}: {msg}" if loc else msg)
+        detail_msg = "; ".join(messages)
+        problem = ProblemDetails(
+            type=f"{settings.PUBLIC_BASE_URL}/errors/422",
+            title="Validation Error",
+            status=422,
+            detail=detail_msg,
+            instance=request.url.path,
+        )
+        return JSONResponse(
+            status_code=422,
+            content=problem.model_dump(),
+            media_type="application/problem+json",
+        )
+
     # Ops & Metrics at root
     app.include_router(ops.router)
 
@@ -93,6 +128,7 @@ def create_app() -> FastAPI:
     api_v1.include_router(channels.router)
     api_v1.include_router(playlists.router)
     api_v1.include_router(search.router)
+    api_v1.include_router(youtube_sync.router)
     api_v1.include_router(ops.router)
 
     app.include_router(api_v1)
